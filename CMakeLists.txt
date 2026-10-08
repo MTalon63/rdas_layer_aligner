@@ -20,6 +20,7 @@ add_executable(rdas_aligner
     parameterparser.cpp
     configstorage.cpp
     imageproc.cpp
+    productcbor.cpp
 )
 
 include_directories(

@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <iostream>
 #include <opencv2/core/mat.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -11,7 +12,25 @@
 #include "imageproc.h"
 #include "opencv2/core/ocl.hpp"
 #include "parameterparser.h"
+#include "productcbor.h"
 
+namespace cv {
+    inline Mat imread(const std::filesystem::path& path, int flags = IMREAD_COLOR) {
+        return cv::imread(path.string(), flags);
+    }
+    inline Mat imread(const char* path, int flags = IMREAD_COLOR) {
+        return cv::imread(std::string(path), flags);
+    }
+
+    inline bool imwrite(const std::filesystem::path& path, InputArray img,
+                        const std::vector<int>& params = std::vector<int>()) {
+        return cv::imwrite(path.string(), img, params);
+    }
+    inline bool imwrite(const char* path, InputArray img,
+                        const std::vector<int>& params = std::vector<int>()) {
+        return cv::imwrite(std::string(path), img, params);
+    }
+}
 static constexpr int CH2_OFFSET = 3606;
 static constexpr int CH3_OFFSET = 1804;
 
@@ -218,7 +237,23 @@ cv::UMat mergeLeftRight(Config& config, const std::string& satellite, const cv::
 }
 
 
-int main(int argc, char** argv) {
+// Drops the raw channel transforms; the channels are already physically aligned.
+static void saveAlignedProductCbor(const std::filesystem::path& sourceDirectory,
+                                   const std::filesystem::path& outputDirectory) {
+  const auto source = sourceDirectory / "product.cbor";
+  const auto target = outputDirectory / "product.cbor";
+
+  if (std::filesystem::exists(target)) {
+    std::filesystem::remove(target);
+  }
+
+  if (!ProductCbor::writeIdentityTransforms(source, target)) {
+    std::cout << "Warning: could not strip channel transforms from product.cbor, copying it unchanged!" << std::endl;
+    std::filesystem::copy(source, target);
+  }
+}
+
+static int run(int argc, char** argv) {
   cv::ocl::setUseOpenCL(true);
   if (cv::ocl::useOpenCL()) {
     std::cout << "OpenCL is enabled!" << std::endl;
@@ -328,16 +363,9 @@ int main(int argc, char** argv) {
       cv::imwrite(output_directory / "MSUGS-VIS-2.png", VIS1_channels[1]);
       cv::imwrite(output_directory / "MSUGS-VIS-3.png", VIS1_channels[2]);
 
-      // Product.cbor is identical due to the lack of calibration
-      std::filesystem::path cborTarget = output_directory / "product.cbor";
+      saveAlignedProductCbor(VIS1_directory, output_directory);
 
-      // overwrite if it already exists
-      if (std::filesystem::exists(cborTarget))
-        std::filesystem::remove(cborTarget);
-
-      std::filesystem::copy(VIS1_directory / "product.cbor", cborTarget);
-
-      std::cout << "Finished saving VIS1 products! CBOR saved at: " << cborTarget << std::endl;
+      std::cout << "Finished saving VIS1 products! CBOR saved at: " << output_directory / "product.cbor" << std::endl;
     }
     // VIS2
     {
@@ -350,16 +378,9 @@ int main(int argc, char** argv) {
       cv::imwrite(output_directory / "MSUGS-VIS-2.png", VIS2_channels[1]);
       cv::imwrite(output_directory / "MSUGS-VIS-3.png", VIS2_channels[2]);
 
-      // Product.cbor is identical due to the lack of calibration
-      std::filesystem::path cborTarget = output_directory / "product.cbor";
+      saveAlignedProductCbor(VIS1_directory, output_directory);
 
-      // overwrite if it already exists
-      if (std::filesystem::exists(cborTarget))
-        std::filesystem::remove(cborTarget);
-
-      std::filesystem::copy(VIS1_directory / "product.cbor", cborTarget);
-
-      std::cout << "Finished saving VIS2 products! CBOR saved at: " << cborTarget << std::endl;
+      std::cout << "Finished saving VIS2 products! CBOR saved at: " << output_directory / "product.cbor" << std::endl;
     }
 
     return 0;
@@ -384,16 +405,9 @@ int main(int argc, char** argv) {
   cv::imwrite(output_directory / "MSUGS-VIS-2.png", mergedCH2);
   cv::imwrite(output_directory / "MSUGS-VIS-3.png", mergedCH3);
 
-  // Product.cbor is identical from either VIS due to the lack of calibration
-  std::filesystem::path cborTarget = output_directory / "product.cbor";
+  saveAlignedProductCbor(VIS1_directory, output_directory);
 
-  // overwrite if it already exists
-  if (std::filesystem::exists(cborTarget))
-    std::filesystem::remove(cborTarget);
-
-  std::filesystem::copy(VIS1_directory / "product.cbor", cborTarget);
-
-  std::cout << "Finished saving merged products! CBOR saved at: " << cborTarget << std::endl;
+  std::cout << "Finished saving merged products! CBOR saved at: " << output_directory / "product.cbor" << std::endl;
 
   // Writes an NC if a path was supplied
   if (NCPath != "") {
@@ -407,5 +421,16 @@ int main(int argc, char** argv) {
     writeNaturalColor(merged, NCPath);
 
     std::cout << "Natural color has been written to " << NCPath << std::endl;
+  }
+
+  return 0;
+}
+
+int main(int argc, char** argv) {
+  try {
+    return run(argc, argv);
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
   }
 }

@@ -30,7 +30,6 @@ std::string ParameterParser::getHelp() const {
 
 ParameterParser::Mode ParameterParser::getMode() const {
   std::string modeStr = std::string("");
-  Mode mode = Mode::cGenerate;
 
   if (mArgs.count("-m")) {
     modeStr = mArgs.at("-m");
@@ -39,15 +38,14 @@ ParameterParser::Mode ParameterParser::getMode() const {
     modeStr = mArgs.at("--mode");
   }
 
+  if (modeStr.empty() || modeStr == "generate") {
+    return Mode::cGenerate;
+  }
   if (modeStr == "calibrate") {
-    mode = Mode::cCalibrate;
-  } else if (modeStr == "generate") {
-    mode = Mode::cGenerate;
-  } else {
-    throw std::runtime_error("Invalid mode parameter given");
+    return Mode::cCalibrate;
   }
 
-  return mode;
+  throw std::runtime_error("Invalid mode parameter '" + modeStr + "' (expected: calibrate|generate, default: generate)");
 }
 
 std::string ParameterParser::getSatellite() const {
