@@ -12,7 +12,11 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 find_package(OpenCV)
 find_package(OpenCL)
-find_package(jsoncpp CONFIG REQUIRED)
+
+# jsoncppConfig is not idempotent, and a parent project may already have loaded it
+if(NOT TARGET jsoncpp_lib)
+    find_package(jsoncpp CONFIG REQUIRED)
+endif()
 
 add_executable(rdas_aligner
     main.cpp
