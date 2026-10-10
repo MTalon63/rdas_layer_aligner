@@ -12,7 +12,6 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 find_package(OpenCV)
 find_package(OpenCL)
-find_package(PkgConfig REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 
 add_executable(rdas_aligner
