@@ -1,9 +1,15 @@
 #pragma once
 
-#ifdef __APPLE__
-#include <json/json.h>
-#else
+// jsoncpp header layout differs per platform/distro: Homebrew and MSYS2
+// install <json/json.h>, while most Linux packages install <jsoncpp/json/json.h>.
+#if defined(__has_include)
+#if __has_include(<jsoncpp/json/json.h>)
 #include <jsoncpp/json/json.h>
+#else
+#include <json/json.h>
+#endif
+#else
+#include <json/json.h>
 #endif
 
 
